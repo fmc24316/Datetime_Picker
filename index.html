@@ -34,7 +34,6 @@
             color: #666;
             margin-bottom: 25px;
         }
-        /* 模擬按鈕外觀的觸發區域 */
         .trigger-box {
             background-color: #f8f9fa;
             border: 1px solid #ced4da;
@@ -72,6 +71,13 @@
         .error { color: #dc3545; }
         .loading-text { font-size: 14px; color: #00B900; margin-bottom: 20px; font-weight: bold; }
     </style>
+    <!-- 引入 vConsole 除錯工具 -->
+    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+    <script>
+        // 初始化 vConsole
+        var vConsole = new window.VConsole();
+        console.log("[System] vConsole 初始化完成，準備載入應用程式");
+    </script>
 </head>
 <body>
 
@@ -81,7 +87,6 @@
     
     <div id="loadingStatus" class="loading-text">系統連線中，請稍候...</div>
 
-    <!-- 點擊這個 div 會觸發底部滾輪 -->
     <div id="timeTrigger" class="trigger-box" style="display: none;">
         請點此選擇日期與時間
     </div>
@@ -96,10 +101,10 @@
 <script>
     // 參數設定區
     const MY_LIFF_ID = '1653833628-9c1v7iPE'; 
+    // 注意：這裡的 API_URL 請確認是否已經換成你實際在 Cloudflare 部署的網址
     const API_URL = 'https://yamicar-nodate.fmc24316.workers.dev/';
     const BOOKING_DAYS = 30; 
 
-    // DOM 元素
     const timeTrigger = document.getElementById('timeTrigger');
     const submitBtn = document.getElementById('submitBtn');
     const errorMessage = document.getElementById('errorMessage');
@@ -108,7 +113,6 @@
     let noWorkDates = []; 
     let finalSelectedDateTime = ""; 
 
-    // 網頁載入時啟動流程
     window.onload = async function() {
         console.log("[System] 網頁載入完成，開始初始化流程");
         await fetchNoWorkDates();
@@ -117,7 +121,6 @@
         initializeLiff();
     };
 
-    // 1. 取得不可營業日資料
     async function fetchNoWorkDates() {
         console.log(`[API] 準備呼叫 API: ${API_URL}`);
         try {
@@ -137,7 +140,6 @@
         }
     }
 
-    // 2. 建立符合套件格式的連動滾輪資料
     function generateWheelData() {
         console.log("[Data] 開始建構滾輪資料結構");
         let dateData = [];
@@ -150,24 +152,19 @@
             let day = String(currentDate.getDate()).padStart(2, '0');
             let dateString = `${year}-${month}-${day}`;
 
-            // 檢查是否為營業日
             if (!noWorkDates.includes(dateString)) {
-                // 建立該日期的時間陣列
                 let hoursArray = [];
                 for (let i = 9; i <= 20; i++) {
                     let timeString = String(i).padStart(2, '0') + ':00';
                     hoursArray.push({ id: timeString, value: timeString });
                 }
                 
-                // 將日期與對應的時間陣列組合成階層結構
                 dateData.push({
                     id: dateString,
                     value: dateString,
                     childs: hoursArray
                 });
                 addedDays++;
-            } else {
-                console.log(`[Data] 已隱藏不可營業日期: ${dateString}`);
             }
             currentDate.setDate(currentDate.getDate() + 1);
         }
@@ -176,11 +173,9 @@
         return dateData;
     }
 
-    // 3. 初始化滾輪套件
     function initMobileSelect(wheelData) {
         console.log("[UI] 初始化 MobileSelect 滾輪套件");
         
-        // 隱藏 Loading，顯示觸發按鈕
         loadingStatus.style.display = 'none';
         timeTrigger.style.display = 'block';
 
@@ -189,15 +184,13 @@
             title: '選擇起租時間',
             wheels: [ { data: wheelData } ],
             callback: function(indexArr, data) {
-                console.log("[Action] 使用者滾輪選擇完畢:", data);
-                // data[0] 是日期，data[1] 是時間
+                console.log("[Action] 使用者滾輪選擇完畢:", JSON.stringify(data));
                 finalSelectedDateTime = `${data[0].id} ${data[1].id}`;
                 timeTrigger.innerText = finalSelectedDateTime;
                 timeTrigger.style.backgroundColor = "#e8f5e9";
                 timeTrigger.style.borderColor = "#c8e6c9";
                 timeTrigger.style.color = "#2e7d32";
                 
-                // 啟用送出按鈕
                 submitBtn.disabled = false;
                 errorMessage.style.display = 'none';
                 console.log(`[State] 已記錄最終選擇時間: ${finalSelectedDateTime}`);
@@ -205,18 +198,16 @@
         });
     }
 
-    // 4. 初始化 LIFF
     function initializeLiff() {
         console.log("[LIFF] 開始初始化 LIFF...");
         liff.init({ liffId: MY_LIFF_ID }).then(() => {
             console.log("[LIFF] 初始化成功");
         }).catch((err) => {
-            console.error("[Error] LIFF 初始化失敗", err);
+            console.error("[Error] LIFF 初始化失敗:", err);
             showMessage("系統初始化失敗，請稍後再試。", "error");
         });
     }
 
-    // 5. 處理送出按鈕點擊事件
     submitBtn.addEventListener('click', function() {
         console.log("[Action] 點擊確認送出按鈕");
         
@@ -242,7 +233,6 @@
         }
     });
 
-    // 輔助函式：顯示錯誤訊息
     function showMessage(msg, type) {
         errorMessage.textContent = msg;
         errorMessage.className = `message ${type}`;
