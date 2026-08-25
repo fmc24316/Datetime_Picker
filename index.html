@@ -1,245 +1,78 @@
-﻿<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>MaaS 隨行助手 - 預約時間</title>
-    <!-- 引入 MobileSelect 滾輪套件的 CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-select@1.1.2/mobileSelect.min.css">
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            padding: 20px;
-            background-color: #f4f5f7;
-            margin: 0;
-            color: #333;
-        }
-        .container {
-            background-color: #fff;
-            padding: 30px 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            max-width: 400px;
-            margin: 20px auto;
-            text-align: center;
-        }
-        h2 {
-            font-size: 20px;
-            margin-top: 0;
-            margin-bottom: 10px;
-            color: #111;
-        }
-        p.desc {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 25px;
-        }
-        .trigger-box {
-            background-color: #f8f9fa;
-            border: 1px solid #ced4da;
-            padding: 16px;
-            border-radius: 8px;
-            font-size: 16px;
-            color: #495057;
-            cursor: pointer;
-            margin-bottom: 25px;
-            transition: background-color 0.2s;
-        }
-        .trigger-box:active {
-            background-color: #e2e6ea;
-        }
-        .submit-btn {
-            width: 100%;
-            padding: 14px;
-            background-color: #00B900;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .submit-btn:disabled {
-            background-color: #c6c6c6;
-            cursor: not-allowed;
-        }
-        .message {
-            font-size: 14px;
-            margin-top: 15px;
-            display: none;
-        }
-        .error { color: #dc3545; }
-        .loading-text { font-size: 14px; color: #00B900; margin-bottom: 20px; font-weight: bold; }
-    </style>
-    <!-- 引入 vConsole 除錯工具 -->
-    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
-    <script>
-        // 初始化 vConsole
-        var vConsole = new window.VConsole();
-        console.log("[System] vConsole 初始化完成，準備載入應用程式");
-    </script>
-</head>
-<body>
-
-<div class="container">
-    <h2>預約起租時間</h2>
-    <p class="desc">請點擊下方欄位，開啟滾輪選擇預計取車的時間。</p>
+﻿export default {
+  async fetch(request, env, ctx) {
+    // 記錄收到的請求方法與網址
+    console.log(`[Request] 收到前端請求，URL: ${request.url}, Method: ${request.method}`);
     
-    <div id="loadingStatus" class="loading-text">系統連線中，請稍候...</div>
-
-    <div id="timeTrigger" class="trigger-box" style="display: none;">
-        請點此選擇日期與時間
-    </div>
-
-    <p class="message error" id="errorMessage"></p>
-    <button id="submitBtn" class="submit-btn" disabled>確認並送出</button>
-</div>
-
-<!-- 引入 LIFF SDK 與 MobileSelect 滾輪套件的 JS -->
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mobile-select@1.1.2/mobileSelect.min.js"></script>
-<script>
-    // 參數設定區
-    const MY_LIFF_ID = '1653833628-9c1v7iPE'; 
-    // 注意：這裡的 API_URL 請確認是否已經換成你實際在 Cloudflare 部署的網址
-    const API_URL = 'https://yamicar-nodate.fmc24316.workers.dev/';
-    const BOOKING_DAYS = 30; 
-
-    const timeTrigger = document.getElementById('timeTrigger');
-    const submitBtn = document.getElementById('submitBtn');
-    const errorMessage = document.getElementById('errorMessage');
-    const loadingStatus = document.getElementById('loadingStatus');
-
-    let noWorkDates = []; 
-    let finalSelectedDateTime = ""; 
-
-    window.onload = async function() {
-        console.log("[System] 網頁載入完成，開始初始化流程");
-        await fetchNoWorkDates();
-        const wheelData = generateWheelData();
-        initMobileSelect(wheelData);
-        initializeLiff();
+    // 設定 CORS 標頭，允許你的 GitHub Pages 前端跨域呼叫此 API
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
     };
 
-    async function fetchNoWorkDates() {
-        console.log(`[API] 準備呼叫 API: ${API_URL}`);
-        try {
-            const response = await fetch(API_URL, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' }
-            });
-            console.log(`[API] 回應狀態碼: ${response.status}`);
-            if (!response.ok) throw new Error(`API 請求失敗，狀態碼: ${response.status}`);
-            
-            const data = await response.json();
-            noWorkDates = Array.isArray(data) ? data : (data.data || []);
-            console.log("[API] 解析後的不可營業日清單:", noWorkDates);
-        } catch (error) {
-            console.error("[Error] API 發生錯誤，將預設全日期皆可營業:", error.message);
-            noWorkDates = []; 
-        }
+    // 攔截並處理瀏覽器發出的 OPTIONS 預檢請求
+    if (request.method === "OPTIONS") {
+      console.log("[OPTIONS] 處理 CORS 預檢請求");
+      return new Response(null, { headers: corsHeaders });
     }
 
-    function generateWheelData() {
-        console.log("[Data] 開始建構滾輪資料結構");
-        let dateData = [];
-        let addedDays = 0;
-        let currentDate = new Date();
+    try {
+      // 目標租車系統 API 的實際網址
+      const targetUrl = 'https://www.yamicar.com.tw/MbrJoin/number_FmcGrp_Api.php';
+      console.log(`[Fetch] 準備呼叫目標 API: ${targetUrl}`);
+      
+      // 使用 POST 發送請求，以符合 fetch API 規範並順利傳遞 JSON Body 參數
+      const response = await fetch(targetUrl, {
+        method: 'POST', 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json' 
+        },
+        body: JSON.stringify({ action: "getNoWork" })
+      });
 
-        while (addedDays < BOOKING_DAYS) {
-            let year = currentDate.getFullYear();
-            let month = String(currentDate.getMonth() + 1).padStart(2, '0');
-            let day = String(currentDate.getDate()).padStart(2, '0');
-            let dateString = `${year}-${month}-${day}`;
+      console.log(`[Fetch] 目標 API 回應狀態碼: ${response.status}`);
+      
+      // 檢查 HTTP 狀態碼是否正常，若異常則回傳空陣列讓前端繼續執行
+      if (!response.ok) {
+        console.log(`[Error] 目標 API 狀態碼異常`);
+        return new Response(JSON.stringify([]), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
-            if (!noWorkDates.includes(dateString)) {
-                let hoursArray = [];
-                for (let i = 9; i <= 20; i++) {
-                    let timeString = String(i).padStart(2, '0') + ':00';
-                    hoursArray.push({ id: timeString, value: timeString });
-                }
-                
-                dateData.push({
-                    id: dateString,
-                    value: dateString,
-                    childs: hoursArray
-                });
-                addedDays++;
-            }
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-        
-        console.log("[Data] 滾輪資料建構完成");
-        return dateData;
-    }
+      // 取得原始回傳文字內容
+      const textData = await response.text();
+      console.log(`[Fetch] 目標 API 回傳原始內容前 200 字元: ${textData.substring(0, 200)}`);
 
-    function initMobileSelect(wheelData) {
-        console.log("[UI] 初始化 MobileSelect 滾輪套件");
-        
-        loadingStatus.style.display = 'none';
-        timeTrigger.style.display = 'block';
+      let formattedDates = [];
+      
+      // 嘗試解析 JSON 並清洗資料結構
+      try {
+        const apiData = JSON.parse(textData);
+        console.log(`[Data] 成功解析 JSON，確認回傳標記 FLG: ${apiData.FLG}`);
 
-        new MobileSelect({
-            trigger: '#timeTrigger',
-            title: '選擇起租時間',
-            wheels: [ { data: wheelData } ],
-            callback: function(indexArr, data) {
-                console.log("[Action] 使用者滾輪選擇完畢:", JSON.stringify(data));
-                finalSelectedDateTime = `${data[0].id} ${data[1].id}`;
-                timeTrigger.innerText = finalSelectedDateTime;
-                timeTrigger.style.backgroundColor = "#e8f5e9";
-                timeTrigger.style.borderColor = "#c8e6c9";
-                timeTrigger.style.color = "#2e7d32";
-                
-                submitBtn.disabled = false;
-                errorMessage.style.display = 'none';
-                console.log(`[State] 已記錄最終選擇時間: ${finalSelectedDateTime}`);
-            }
-        });
-    }
-
-    function initializeLiff() {
-        console.log("[LIFF] 開始初始化 LIFF...");
-        liff.init({ liffId: MY_LIFF_ID }).then(() => {
-            console.log("[LIFF] 初始化成功");
-        }).catch((err) => {
-            console.error("[Error] LIFF 初始化失敗:", err);
-            showMessage("系統初始化失敗，請稍後再試。", "error");
-        });
-    }
-
-    submitBtn.addEventListener('click', function() {
-        console.log("[Action] 點擊確認送出按鈕");
-        
-        if (!finalSelectedDateTime) {
-            showMessage("請先選擇預約時間。", "error");
-            return;
-        }
-
-        const messageText = `[預約起租] ${finalSelectedDateTime}`;
-        console.log(`[LIFF] 準備發送訊息: ${messageText}`);
-
-        if (liff.isInClient()) {
-            liff.sendMessages([{ type: 'text', text: messageText }]).then(() => {
-                console.log("[LIFF] 訊息發送成功，關閉視窗");
-                liff.closeWindow();
-            }).catch((err) => {
-                console.error("[Error] 發送訊息失敗:", err);
-                showMessage("發送訊息失敗，請檢查網路狀態。", "error");
-            });
+        // 確保資料結構符合預期後，提取不可營業日字串轉換為一維陣列
+        if (apiData.FLG === "T" && apiData.RES_DATA && Array.isArray(apiData.RES_DATA.DATE_S)) {
+          formattedDates = apiData.RES_DATA.DATE_S.map(item => item.NO_DATE);
+          console.log(`[Data] 轉換後的純日期陣列:`, JSON.stringify(formattedDates));
         } else {
-            console.log(`[Test] 測試環境模擬發送: ${messageText}`);
-            alert(`測試環境發送字串:\n${messageText}`);
+          console.log(`[Warning] 資料結構不如預期，回傳空陣列`);
         }
-    });
+      } catch (parseError) {
+        console.log(`[Error] 無法將回傳內容解析為 JSON: ${parseError.message}`);
+      }
 
-    function showMessage(msg, type) {
-        errorMessage.textContent = msg;
-        errorMessage.className = `message ${type}`;
-        errorMessage.style.display = 'block';
-        console.log(`[UI] 顯示訊息: [${type}] ${msg}`);
+      // 將清洗後的乾淨陣列回傳給前端
+      return new Response(JSON.stringify(formattedDates), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+
+    } catch (error) {
+      // 捕捉任何未預期的系統例外錯誤
+      console.log(`[Exception] 發生例外錯誤: ${error.message}`);
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
-</script>
-
-</body>
-</html>
+  }
+};
