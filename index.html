@@ -1,0 +1,211 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>預約時間選擇</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f5f7; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+        h2 { text-align: center; font-size: 18px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; box-sizing: border-box; background-color: #fff; }
+        button { width: 100%; padding: 12px; background-color: #00B900; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        button:disabled { background-color: #ccc; }
+        .message { font-size: 14px; margin-top: 10px; display: none; }
+        .error { color: red; }
+        .loading { color: #666; display: block; text-align: center; margin-bottom: 15px;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>選擇租車時間</h2>
+    <div id="loadingText" class="loading">正在載入營業日資料，請稍候...</div>
+
+    <div class="form-group">
+        <label for="rentDate">起租日期：</label>
+        <select id="rentDate" disabled>
+            <option value="">請選擇日期</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="rentTime">起租時間：</label>
+        <select id="rentTime" disabled>
+            <option value="">請選擇時間</option>
+        </select>
+    </div>
+
+    <p class="message error" id="errorMessage"></p>
+    <button id="submitBtn" disabled>確認並送出</button>
+</div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+    // 請替換為你的 LIFF ID
+    const MY_LIFF_ID = '在此填寫你的_LIFF_ID'; 
+    // 請替換為你剛才在 Cloudflare Workers 建立的專屬網址
+    const API_URL = 'https://yamicar-nodate.fmc24316.workers.dev/';
+    const BOOKING_DAYS = 30; 
+
+    const rentDateSelect = document.getElementById('rentDate');
+    const rentTimeSelect = document.getElementById('rentTime');
+    const submitBtn = document.getElementById('submitBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    const loadingText = document.getElementById('loadingText');
+
+    let noWorkDates = []; 
+
+    window.onload = async function() {
+        console.log("[System] 網頁載入完成，開始初始化流程");
+        await fetchNoWorkDates();
+        generateDateOptions();
+        generateTimeOptions();
+        initializeLiff();
+    };
+
+    async function fetchNoWorkDates() {
+        console.log(`[API] 準備呼叫 API 取得不可營業日: ${API_URL}`);
+        try {
+            const response = await fetch(API_URL, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            console.log(`[API] 回應狀態碼: ${response.status}`);
+
+            if (!response.ok) {
+                throw new Error(`API 請求失敗，狀態碼: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log("[API] 原始回傳資料:", data);
+
+            // 依據實際回傳結構取出陣列資料，若結構不同需在此微調
+            noWorkDates = Array.isArray(data) ? data : (data.data || []);
+            console.log("[API] 解析後的不可營業日清單:", noWorkDates);
+
+        } catch (error) {
+            console.error("[Error] 呼叫 API 發生錯誤:", error);
+            console.log("[System] API 失敗，為避免卡死，系統將預設所有日期皆可營業。");
+            noWorkDates = []; 
+        } finally {
+            loadingText.style.display = 'none';
+        }
+    }
+
+    function generateDateOptions() {
+        console.log("[UI] 開始產生日期選單...");
+        rentDateSelect.innerHTML = '<option value="">請選擇日期</option>';
+        let addedDays = 0;
+        let currentDate = new Date();
+
+        while (addedDays < BOOKING_DAYS) {
+            let year = currentDate.getFullYear();
+            let month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            let day = String(currentDate.getDate()).padStart(2, '0');
+            let dateString = `${year}-${month}-${day}`;
+
+            if (!noWorkDates.includes(dateString)) {
+                let option = document.createElement('option');
+                option.value = dateString;
+                option.textContent = dateString;
+                rentDateSelect.appendChild(option);
+                addedDays++;
+                console.log(`[Data] 加入可營業日期: ${dateString}`);
+            } else {
+                console.log(`[Data] 排除不可營業日期: ${dateString}`);
+            }
+            
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        rentDateSelect.disabled = false;
+        console.log("[UI] 日期選單產生完畢");
+    }
+
+    function generateTimeOptions() {
+        console.log("[UI] 開始產生時間選單...");
+        rentTimeSelect.innerHTML = '<option value="">請選擇時間</option>';
+        
+        for (let i = 9; i <= 20; i++) {
+            let timeString = String(i).padStart(2, '0') + ':00';
+            let option = document.createElement('option');
+            option.value = timeString;
+            option.textContent = timeString;
+            rentTimeSelect.appendChild(option);
+        }
+        
+        rentTimeSelect.disabled = false;
+        console.log("[UI] 時間選單產生完畢");
+    }
+
+    function initializeLiff() {
+        console.log("[LIFF] 開始初始化 LIFF...");
+        liff.init({
+            liffId: MY_LIFF_ID
+        }).then(() => {
+            console.log("[LIFF] 初始化成功");
+            
+            if (!liff.isInClient()) {
+                console.log("[Warning] 使用者不在 LINE App 內開啟");
+            }
+
+            submitBtn.disabled = false;
+            console.log("[UI] 送出按鈕已啟用");
+
+        }).catch((err) => {
+            console.error("[Error] LIFF 初始化失敗", err);
+            showMessage("系統初始化失敗，請稍後再試。", "error");
+        });
+    }
+
+    submitBtn.addEventListener('click', function() {
+        console.log("[Action] 使用者點擊送出按鈕");
+        
+        const selectedDate = rentDateSelect.value;
+        const selectedTime = rentTimeSelect.value;
+        
+        console.log(`[Action] 使用者選擇 - 日期: ${selectedDate}, 時間: ${selectedTime}`);
+
+        if (!selectedDate || !selectedTime) {
+            console.log("[Validation] 驗證失敗: 日期或時間未選擇");
+            showMessage("請完整選擇日期與時間。", "error");
+            return;
+        }
+
+        errorMessage.style.display = 'none';
+
+        const finalDateTime = `${selectedDate} ${selectedTime}`;
+        const messageText = `[預約起租] ${finalDateTime}`;
+        
+        console.log(`[LIFF] 準備發送 LINE 訊息: ${messageText}`);
+
+        if (liff.isInClient()) {
+            liff.sendMessages([
+                { type: 'text', text: messageText }
+            ]).then(() => {
+                console.log("[LIFF] 訊息發送成功，關閉 LIFF");
+                liff.closeWindow();
+            }).catch((err) => {
+                console.error("[Error] 發送訊息失敗:", err);
+                showMessage("發送訊息失敗，請檢查網路狀態。", "error");
+            });
+        } else {
+            console.log(`[Test] 非 LINE 環境，模擬發送結果: ${messageText}`);
+            alert(`測試環境：會送出字串 "${messageText}"`);
+        }
+    });
+
+    function showMessage(msg, type) {
+        errorMessage.textContent = msg;
+        errorMessage.className = `message ${type}`;
+        errorMessage.style.display = 'block';
+        console.log(`[UI] 顯示畫面訊息: [${type}] ${msg}`);
+    }
+</script>
+
+</body>
+</html>
