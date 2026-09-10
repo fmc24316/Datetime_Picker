@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>MaaS 隨行助手 - 預約時間</title>
     
-    <!-- 更新 CSS 樣式表路徑為最穩定的 1.2.2 版本 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.2.2/mobileSelect.min.css">
+    <!-- 僅保留 vConsole 除錯工具在 head，其他資源全部改為動態安全載入 -->
     <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
     
     <style>
@@ -92,12 +91,12 @@
     let noWorkDates = []; 
     let finalSelectedDateTime = ""; 
 
-    // 動態載入函式：支援 CDN 陣列備援機制
+    // 動態載入 JavaScript 的備援函式
     function loadExternalScriptWithFallback(urls) {
         return new Promise((resolve, reject) => {
             const tryLoad = (index) => {
                 if (index >= urls.length) {
-                    reject(new Error("所有 CDN 來源皆載入失敗"));
+                    reject(new Error("所有 JavaScript CDN 來源皆載入失敗"));
                     return;
                 }
                 const url = urls[index];
@@ -105,18 +104,46 @@
                 script.src = url;
                 
                 script.onload = () => {
-                    console.log(`[System] 成功載入套件: ${url}`);
+                    console.log(`[System] 成功載入 JS 套件: ${url}`);
                     resolve();
                 };
                 
                 script.onerror = () => {
-                    console.warn(`[Warning] 網址載入失敗 (${url})，自動嘗試下一個備用連結...`);
+                    console.warn(`[Warning] JS 網址載入失敗 (${url})，自動嘗試下一個備用連結...`);
                     tryLoad(index + 1); 
                 };
                 
                 document.head.appendChild(script);
             };
-            
+            tryLoad(0); 
+        });
+    }
+
+    // 動態載入 CSS 的備援函式
+    function loadExternalStyleWithFallback(urls) {
+        return new Promise((resolve, reject) => {
+            const tryLoad = (index) => {
+                if (index >= urls.length) {
+                    reject(new Error("所有 CSS CDN 來源皆載入失敗"));
+                    return;
+                }
+                const url = urls[index];
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = url;
+                
+                link.onload = () => {
+                    console.log(`[System] 成功載入 CSS 樣式: ${url}`);
+                    resolve();
+                };
+                
+                link.onerror = () => {
+                    console.warn(`[Warning] CSS 網址載入失敗 (${url})，自動嘗試下一個備用連結...`);
+                    tryLoad(index + 1); 
+                };
+                
+                document.head.appendChild(link);
+            };
             tryLoad(0); 
         });
     }
@@ -125,26 +152,36 @@
         console.log("[System] 網頁 DOM 載入完成，開始執行非同步初始化流程");
         
         try {
-            // 步驟一：嚴格等待必要的套件下載完成 (更新為 1.2.2 版本的 CDN 來源)
+            // 步驟一：動態載入 CSS (使用最穩定的 1.2.2 版本與多重路徑)
+            await loadExternalStyleWithFallback([
+                'https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.2.2/mobileSelect.min.css',
+                'https://unpkg.com/mobile-select@1.2.2/mobileSelect.min.css',
+                'https://cdn.jsdelivr.net/npm/mobile-select@1.2.2/mobileSelect.min.css',
+                'https://cdn.jsdelivr.net/npm/mobile-select/mobileSelect.min.css'
+            ]);
+
+            // 步驟二：動態載入 JS 套件
             await loadExternalScriptWithFallback([
                 'https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.2.2/mobileSelect.min.js',
+                'https://unpkg.com/mobile-select@1.2.2/mobileSelect.min.js',
                 'https://cdn.jsdelivr.net/npm/mobile-select@1.2.2/mobileSelect.min.js',
-                'https://unpkg.com/mobile-select@1.2.2/mobileSelect.min.js'
+                'https://cdn.jsdelivr.net/npm/mobile-select/mobileSelect.min.js'
             ]);
             
+            // 步驟三：動態載入 LINE LIFF SDK
             await loadExternalScriptWithFallback([
                 'https://static.line-scdn.net/liff/edge/2/sdk.js'
             ]);
             
-            console.log("[System] 所有外部套件皆已確認載入完畢");
+            console.log("[System] 所有外部套件與樣式皆已確認載入完畢");
 
-            // 步驟二：呼叫 API 取得不可營業日
+            // 步驟四：呼叫 API 取得不可營業日
             await fetchNoWorkDates();
             
-            // 步驟三：建構滾輪資料
+            // 步驟五：建構滾輪資料
             const wheelData = generateWheelData();
             
-            // 步驟四：初始化滾輪與 LIFF
+            // 步驟六：初始化滾輪與 LIFF
             initMobileSelect(wheelData);
             initializeLiff();
 
