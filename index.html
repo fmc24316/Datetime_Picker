@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>MaaS 隨行助手 - 預約時間</title>
     
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.1.2/mobileSelect.min.css">
+    <!-- 更新 CSS 樣式表路徑為最穩定的 1.2.2 版本 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.2.2/mobileSelect.min.css">
     <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
     
     <style>
@@ -57,6 +58,7 @@
     </style>
     
     <script>
+        // 初始化 vConsole 除錯工具
         var vConsole = new window.VConsole();
         console.log("[System] vConsole 初始化完成，準備動態載入套件");
     </script>
@@ -90,7 +92,7 @@
     let noWorkDates = []; 
     let finalSelectedDateTime = ""; 
 
-    // 動態載入函式：具備 CDN 陣列備援機制
+    // 動態載入函式：支援 CDN 陣列備援機制
     function loadExternalScriptWithFallback(urls) {
         return new Promise((resolve, reject) => {
             const tryLoad = (index) => {
@@ -109,13 +111,13 @@
                 
                 script.onerror = () => {
                     console.warn(`[Warning] 網址載入失敗 (${url})，自動嘗試下一個備用連結...`);
-                    tryLoad(index + 1);
+                    tryLoad(index + 1); 
                 };
                 
                 document.head.appendChild(script);
             };
             
-            tryLoad(0);
+            tryLoad(0); 
         });
     }
 
@@ -123,11 +125,11 @@
         console.log("[System] 網頁 DOM 載入完成，開始執行非同步初始化流程");
         
         try {
-            // 提供三個不同的 CDN 來源作為備援，確保套件一定能下載成功
+            // 步驟一：嚴格等待必要的套件下載完成 (更新為 1.2.2 版本的 CDN 來源)
             await loadExternalScriptWithFallback([
-                'https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.1.2/mobileSelect.min.js',
-                'https://unpkg.com/mobile-select@1.1.2/mobileSelect.js',
-                'https://cdn.jsdelivr.net/npm/mobile-select@1.1.2/mobileSelect.js'
+                'https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.2.2/mobileSelect.min.js',
+                'https://cdn.jsdelivr.net/npm/mobile-select@1.2.2/mobileSelect.min.js',
+                'https://unpkg.com/mobile-select@1.2.2/mobileSelect.min.js'
             ]);
             
             await loadExternalScriptWithFallback([
@@ -136,9 +138,13 @@
             
             console.log("[System] 所有外部套件皆已確認載入完畢");
 
+            // 步驟二：呼叫 API 取得不可營業日
             await fetchNoWorkDates();
+            
+            // 步驟三：建構滾輪資料
             const wheelData = generateWheelData();
             
+            // 步驟四：初始化滾輪與 LIFF
             initMobileSelect(wheelData);
             initializeLiff();
 
