@@ -5,10 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>MaaS 隨行助手 - 預約時間</title>
     
-    <!-- 直接在 head 引入最穩定的 cdnjs 來源，確保網頁渲染前完全載入 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.1.2/mobileSelect.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.1.2/mobileSelect.min.js"></script>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
     
     <style>
@@ -60,9 +57,8 @@
     </style>
     
     <script>
-        // 初始化 vConsole 除錯工具
         var vConsole = new window.VConsole();
-        console.log("[System] vConsole 初始化完成，套件已透過 HTML 標籤載入");
+        console.log("[System] vConsole 初始化完成，準備動態載入套件");
     </script>
 </head>
 <body>
@@ -94,25 +90,55 @@
     let noWorkDates = []; 
     let finalSelectedDateTime = ""; 
 
-    window.onload = async function() {
-        console.log("[System] 網頁 DOM 載入完成，開始執行初始化流程");
-        
-        // 檢查 MobileSelect 是否成功從 CDN 載入
-        if (typeof MobileSelect === 'undefined') {
-            console.error("[Error] MobileSelect 套件未載入");
-            loadingStatus.style.display = 'none';
-            showMessage("介面套件載入失敗，請檢查網路連線或重新整理網頁。", "error");
-            return;
-        }
-
-        try {
-            // 步驟一：呼叫 API 取得不可營業日
-            await fetchNoWorkDates();
+    // 動態載入函式：具備 CDN 陣列備援機制
+    function loadExternalScriptWithFallback(urls) {
+        return new Promise((resolve, reject) => {
+            const tryLoad = (index) => {
+                if (index >= urls.length) {
+                    reject(new Error("所有 CDN 來源皆載入失敗"));
+                    return;
+                }
+                const url = urls[index];
+                const script = document.createElement('script');
+                script.src = url;
+                
+                script.onload = () => {
+                    console.log(`[System] 成功載入套件: ${url}`);
+                    resolve();
+                };
+                
+                script.onerror = () => {
+                    console.warn(`[Warning] 網址載入失敗 (${url})，自動嘗試下一個備用連結...`);
+                    tryLoad(index + 1);
+                };
+                
+                document.head.appendChild(script);
+            };
             
-            // 步驟二：建構滾輪資料
+            tryLoad(0);
+        });
+    }
+
+    window.onload = async function() {
+        console.log("[System] 網頁 DOM 載入完成，開始執行非同步初始化流程");
+        
+        try {
+            // 提供三個不同的 CDN 來源作為備援，確保套件一定能下載成功
+            await loadExternalScriptWithFallback([
+                'https://cdnjs.cloudflare.com/ajax/libs/mobile-select/1.1.2/mobileSelect.min.js',
+                'https://unpkg.com/mobile-select@1.1.2/mobileSelect.js',
+                'https://cdn.jsdelivr.net/npm/mobile-select@1.1.2/mobileSelect.js'
+            ]);
+            
+            await loadExternalScriptWithFallback([
+                'https://static.line-scdn.net/liff/edge/2/sdk.js'
+            ]);
+            
+            console.log("[System] 所有外部套件皆已確認載入完畢");
+
+            await fetchNoWorkDates();
             const wheelData = generateWheelData();
             
-            // 步驟三：初始化滾輪與 LIFF
             initMobileSelect(wheelData);
             initializeLiff();
 
