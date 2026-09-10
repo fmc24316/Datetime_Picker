@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>MaaS 隨行助手 - 預約時間</title>
+    <title>預約時間</title>
     
+    <!-- 引入 LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     
     <style>
+        /* 基礎排版 */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             padding: 15px;
@@ -26,6 +28,7 @@
         h2 { font-size: 18px; margin-top: 0; margin-bottom: 5px; color: #111; text-align: center; }
         p.desc { font-size: 13px; color: #666; margin-bottom: 20px; text-align: center; }
         
+        /* 區塊標題 */
         .section-title {
             font-size: 15px;
             font-weight: bold;
@@ -33,16 +36,19 @@
             color: #444;
         }
 
+        /* 日期水平滑動區塊 */
         .date-scroll-container {
             display: flex;
             overflow-x: auto;
             gap: 10px;
             padding-bottom: 10px;
             margin-bottom: 20px;
+            /* 隱藏卷軸但保持可滑動 */
             scrollbar-width: none; 
         }
         .date-scroll-container::-webkit-scrollbar { display: none; }
         
+        /* 單一日期的按鈕樣式 */
         .date-chip {
             padding: 10px 15px;
             border: 1px solid #ced4da;
@@ -55,6 +61,7 @@
             transition: all 0.2s;
         }
         
+        /* 時間網格區塊 */
         .time-grid-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -62,6 +69,7 @@
             margin-bottom: 25px;
         }
         
+        /* 單一時間的按鈕樣式 */
         .time-chip {
             padding: 12px 0;
             border: 1px solid #ced4da;
@@ -73,6 +81,7 @@
             transition: all 0.2s;
         }
 
+        /* 按鈕被選取時的狀態 */
         .chip-selected {
             background-color: #e8f5e9;
             color: #2e7d32;
@@ -80,6 +89,7 @@
             font-weight: bold;
         }
         
+        /* 按鈕被禁用的狀態 (未選日期前，時間不可選) */
         .chip-disabled {
             background-color: #f1f3f5;
             color: #adb5bd;
@@ -88,6 +98,7 @@
             pointer-events: none;
         }
 
+        /* 確認送出按鈕 */
         .submit-btn {
             width: 100%;
             padding: 14px;
@@ -101,6 +112,7 @@
         }
         .submit-btn:disabled { background-color: #c6c6c6; cursor: not-allowed; }
         
+        /* 系統狀態文字 */
         .loading-text { font-size: 14px; color: #00B900; margin-bottom: 20px; font-weight: bold; text-align: center; }
         .error-message { font-size: 14px; margin-top: 15px; color: #dc3545; display: none; text-align: center;}
     </style>
@@ -113,13 +125,16 @@
     
     <div id="loadingStatus" class="loading-text">系統連線中，請稍候...</div>
 
+    <!-- UI 選擇區域 (預設隱藏，待資料載入後顯示) -->
     <div id="selectionArea" style="display: none;">
         <div class="section-title">1. 選擇日期</div>
         <div id="dateContainer" class="date-scroll-container">
+            <!-- 日期按鈕會由 JS 動態產生在這裡 -->
         </div>
 
         <div class="section-title">2. 選擇時間</div>
         <div id="timeContainer" class="time-grid-container">
+            <!-- 時間按鈕會由 JS 動態產生在這裡 -->
         </div>
     </div>
 
@@ -128,10 +143,12 @@
 </div>
 
 <script>
+    // 系統常數設定
     const MY_LIFF_ID = '1653833628-9c1v7iPE'; 
     const API_URL = 'https://yamicar-nodate.fmc24316.workers.dev/';
     const BOOKING_DAYS = 60; 
 
+    // DOM 元素綁定
     const loadingStatus = document.getElementById('loadingStatus');
     const selectionArea = document.getElementById('selectionArea');
     const dateContainer = document.getElementById('dateContainer');
@@ -139,10 +156,12 @@
     const submitBtn = document.getElementById('submitBtn');
     const errorMessage = document.getElementById('errorMessage');
 
+    // 狀態變數
     let noWorkDates = []; 
     let selectedDate = "";
     let selectedTime = "";
 
+    // 網頁載入主程式
     window.onload = async function() {
         console.log("[System] 網頁 DOM 載入完成，開始執行主程式");
         
@@ -151,6 +170,7 @@
             buildDateUI();
             buildTimeUI();
             
+            // 顯示介面
             loadingStatus.style.display = 'none';
             selectionArea.style.display = 'block';
             
@@ -161,6 +181,7 @@
         }
     };
 
+    // 呼叫 API 取得不可營業日
     async function fetchNoWorkDates() {
         console.log(`[API] 準備呼叫 API: ${API_URL}`);
         try {
@@ -181,6 +202,7 @@
         }
     }
 
+    // 動態產生日期按鈕
     function buildDateUI() {
         console.log("[UI] 開始建構日期按鈕，設定天數為:", BOOKING_DAYS);
         let addedDays = 0;
@@ -192,14 +214,16 @@
             let day = String(currentDate.getDate()).padStart(2, '0');
             let dateString = `${year}-${month}-${day}`;
             
+            // 簡化顯示用的文字
             let displayString = `${month}-${day}`;
 
             if (!noWorkDates.includes(dateString)) {
                 let btn = document.createElement('div');
                 btn.className = 'date-chip';
                 btn.textContent = displayString;
-                btn.dataset.date = dateString;
+                btn.dataset.date = dateString; 
                 
+                // 綁定點擊事件
                 btn.onclick = function() {
                     handleDateSelect(this);
                 };
@@ -212,16 +236,19 @@
         console.log("[UI] 日期按鈕建構完成");
     }
 
+    // 動態產生時間按鈕
     function buildTimeUI() {
         console.log("[UI] 開始建構時間按鈕");
         for (let i = 9; i <= 20; i++) {
             let timeString = String(i).padStart(2, '0') + ':00';
             
             let btn = document.createElement('div');
+            // 預設加上 chip-disabled，因為還沒選日期
             btn.className = 'time-chip chip-disabled';
             btn.textContent = timeString;
             btn.dataset.time = timeString;
             
+            // 綁定點擊事件
             btn.onclick = function() {
                 handleTimeSelect(this);
             };
@@ -231,31 +258,39 @@
         console.log("[UI] 時間按鈕建構完成");
     }
 
+    // 處理日期選擇邏輯
     function handleDateSelect(clickedElement) {
         console.log(`[Action] 使用者選擇了日期: ${clickedElement.dataset.date}`);
         selectedDate = clickedElement.dataset.date;
         
+        // 重置所有日期按鈕的樣式，並亮起被點擊的按鈕
         const allDateChips = document.querySelectorAll('.date-chip');
         allDateChips.forEach(chip => chip.classList.remove('chip-selected'));
         clickedElement.classList.add('chip-selected');
         
+        // 解除時間按鈕的禁用狀態
         const allTimeChips = document.querySelectorAll('.time-chip');
         allTimeChips.forEach(chip => chip.classList.remove('chip-disabled'));
         
+        // 檢查是否可以啟用送出按鈕
         checkSubmitButton();
     }
 
+    // 處理時間選擇邏輯
     function handleTimeSelect(clickedElement) {
         console.log(`[Action] 使用者選擇了時間: ${clickedElement.dataset.time}`);
         selectedTime = clickedElement.dataset.time;
         
+        // 重置所有時間按鈕的樣式，並亮起被點擊的按鈕
         const allTimeChips = document.querySelectorAll('.time-chip');
         allTimeChips.forEach(chip => chip.classList.remove('chip-selected'));
         clickedElement.classList.add('chip-selected');
         
+        // 檢查是否可以啟用送出按鈕
         checkSubmitButton();
     }
 
+    // 檢查資料是否齊全，以啟用送出按鈕
     function checkSubmitButton() {
         if (selectedDate !== "" && selectedTime !== "") {
             submitBtn.disabled = false;
@@ -263,6 +298,7 @@
         }
     }
 
+    // 初始化 LIFF
     function initializeLiff() {
         console.log("[LIFF] 開始初始化 LIFF...");
         liff.init({ liffId: MY_LIFF_ID }).then(() => {
@@ -274,6 +310,7 @@
         });
     }
 
+    // 送出按鈕事件
     submitBtn.addEventListener('click', function() {
         const finalDateTime = `${selectedDate} ${selectedTime}`;
         const messageText = `[預約起租] ${finalDateTime}`;
