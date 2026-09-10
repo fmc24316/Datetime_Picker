@@ -34,6 +34,30 @@
             color: #444;
         }
 
+        /* 月份切換標籤區塊 */
+        .month-tabs-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .month-tab {
+            padding: 6px 16px;
+            border-radius: 20px;
+            background-color: #e9ecef;
+            color: #495057;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .month-tab.active {
+            background-color: #00B900;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* 日期水平滑動區塊 */
         .date-scroll-container {
             display: flex;
             overflow-x: auto;
@@ -56,6 +80,7 @@
             transition: all 0.2s;
         }
         
+        /* 時間網格區塊 */
         .time-grid-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -74,13 +99,15 @@
             transition: all 0.2s;
         }
 
+        /* 被選取的通用狀態 */
         .chip-selected {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border-color: #4caf50;
+            background-color: #e8f5e9 !important;
+            color: #2e7d32 !important;
+            border-color: #4caf50 !important;
             font-weight: bold;
         }
         
+        /* 禁用的通用狀態 */
         .chip-disabled {
             background-color: #f1f3f5;
             color: #adb5bd;
@@ -108,7 +135,7 @@
     
     <script>
         var vConsole = new window.VConsole();
-        console.log("[System] vConsole 初始化完成，準備載入 60 天預約架構");
+        console.log("[System] vConsole 初始化完成，加入月份切換機制的架構載入中");
     </script>
 </head>
 <body>
@@ -121,11 +148,16 @@
 
     <div id="selectionArea" style="display: none;">
         <div class="section-title">1. 選擇日期</div>
+        <!-- 新增月份標籤的容器 -->
+        <div id="monthTabsContainer" class="month-tabs-container"></div>
+        
         <div id="dateContainer" class="date-scroll-container">
+            <!-- 日期按鈕 -->
         </div>
 
         <div class="section-title">2. 選擇時間</div>
         <div id="timeContainer" class="time-grid-container">
+            <!-- 時間按鈕 -->
         </div>
     </div>
 
@@ -136,11 +168,11 @@
 <script>
     const MY_LIFF_ID = '1653833628-9c1v7iPE'; 
     const API_URL = 'https://yamicar-nodate.fmc24316.workers.dev/';
-    // 將預約天數上限修改為 60 天
     const BOOKING_DAYS = 60; 
 
     const loadingStatus = document.getElementById('loadingStatus');
     const selectionArea = document.getElementById('selectionArea');
+    const monthTabsContainer = document.getElementById('monthTabsContainer');
     const dateContainer = document.getElementById('dateContainer');
     const timeContainer = document.getElementById('timeContainer');
     const submitBtn = document.getElementById('submitBtn');
@@ -189,23 +221,35 @@
     }
 
     function buildDateUI() {
-        console.log("[UI] 開始建構日期按鈕，設定天數為:", BOOKING_DAYS);
+        console.log("[UI] 開始建構日期與月份按鈕");
         let addedDays = 0;
         let currentDate = new Date();
+        
+        // 用來記錄這 60 天橫跨了哪些月份
+        let uniqueMonths = new Map(); 
 
         while (addedDays < BOOKING_DAYS) {
             let year = currentDate.getFullYear();
             let month = String(currentDate.getMonth() + 1).padStart(2, '0');
             let day = String(currentDate.getDate()).padStart(2, '0');
-            let dateString = `${year}-${month}-${day}`;
             
+            let dateString = `${year}-${month}-${day}`;
+            let monthKey = `${year}-${month}`; // 格式如 2026-09
+            let displayMonth = `${parseInt(month, 10)}月`; // 格式如 9月
             let displayString = `${month}-${day}`;
 
+            // 若該日可營業，則建立日期按鈕並收集月份資訊
             if (!noWorkDates.includes(dateString)) {
+                // 記錄月份資訊
+                if (!uniqueMonths.has(monthKey)) {
+                    uniqueMonths.set(monthKey, displayMonth);
+                }
+
                 let btn = document.createElement('div');
                 btn.className = 'date-chip';
                 btn.textContent = displayString;
                 btn.dataset.date = dateString;
+                btn.dataset.month = monthKey; // 綁定該日期所屬的月份
                 
                 btn.onclick = function() {
                     handleDateSelect(this);
@@ -216,7 +260,61 @@
             }
             currentDate.setDate(currentDate.getDate() + 1);
         }
-        console.log("[UI] 日期按鈕建構完成");
+
+        // 根據收集到的月份資訊，動態產生月份頁籤
+        let isFirstMonth = true;
+        uniqueMonths.forEach((displayMonth, monthKey) => {
+            let tab = document.createElement('div');
+            tab.className = 'month-tab';
+            if (isFirstMonth) {
+                tab.classList.add('active'); // 預設亮起第一個月
+            }
+            tab.textContent = displayMonth;
+            tab.dataset.targetMonth = monthKey;
+            
+            tab.onclick = function() {
+                handleMonthSwitch(this);
+            };
+            
+            monthTabsContainer.appendChild(tab);
+            isFirstMonth = false;
+        });
+
+        // 初始化時，強制執行一次第一個月的過濾
+        if (uniqueMonths.size > 0) {
+            const firstMonthKey = uniqueMonths.keys().next().value;
+            filterDatesByMonth(firstMonthKey);
+        }
+
+        console.log("[UI] 日期與月份按鈕建構完成");
+    }
+
+    // 處理點擊月份頁籤的邏輯
+    function handleMonthSwitch(clickedTab) {
+        console.log(`[Action] 切換月份至: ${clickedTab.dataset.targetMonth}`);
+        
+        // 切換頁籤的樣式
+        const allTabs = document.querySelectorAll('.month-tab');
+        allTabs.forEach(tab => tab.classList.remove('active'));
+        clickedTab.classList.add('active');
+
+        // 過濾下方顯示的日期
+        filterDatesByMonth(clickedTab.dataset.targetMonth);
+        
+        // 每次切換月份時，將捲動條重置回最左邊
+        dateContainer.scrollLeft = 0;
+    }
+
+    // 過濾顯示特定月份的日期按鈕
+    function filterDatesByMonth(targetMonthKey) {
+        const allDateChips = document.querySelectorAll('.date-chip');
+        allDateChips.forEach(chip => {
+            if (chip.dataset.month === targetMonthKey) {
+                chip.style.display = 'block'; // 符合月份則顯示
+            } else {
+                chip.style.display = 'none';  // 不符合則隱藏
+            }
+        });
     }
 
     function buildTimeUI() {
