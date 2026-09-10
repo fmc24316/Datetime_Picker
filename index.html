@@ -5,61 +5,101 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>MaaS 隨行助手 - 預約時間</title>
     
-    <!-- 1. 載入 CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-select@1.1.2/mobileSelect.min.css">
-    
-    <!-- 2. 載入 vConsole (除錯用) -->
-    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
-    <script>
-        var vConsole = new window.VConsole();
-        console.log("[System] vConsole 初始化完成");
-    </script>
-
-    <!-- 3. 載入主要的 MobileSelect 套件 (絕對有效的路徑) -->
-    <script src="https://cdn.jsdelivr.net/npm/mobile-select@1.1.2/mobileSelect.min.js"></script>
-    
-    <!-- 4. 備援機制：如果主要 CDN 失敗，強制使用備用 CDN -->
-    <script>
-        if (typeof MobileSelect === 'undefined') {
-            console.log("[System] 主要 CDN 載入失敗，啟動備援 CDN");
-            document.write('<script src="https://unpkg.com/mobile-select@1.1.2/mobileSelect.min.js"><\/script>');
-        }
-    </script>
-
-    <!-- 5. 載入 LIFF SDK -->
+    <!-- 僅保留必備的 LIFF SDK 與 vConsole 除錯工具 -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
     
     <style>
+        /* 基礎排版 */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            padding: 20px;
+            padding: 15px;
             background-color: #f4f5f7;
             margin: 0;
             color: #333;
         }
         .container {
             background-color: #fff;
-            padding: 30px 20px;
+            padding: 25px 20px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             max-width: 400px;
-            margin: 20px auto;
-            text-align: center;
+            margin: 10px auto;
         }
-        h2 { font-size: 20px; margin-top: 0; margin-bottom: 10px; color: #111; }
-        p.desc { font-size: 14px; color: #666; margin-bottom: 25px; }
-        .trigger-box {
-            background-color: #f8f9fa;
+        h2 { font-size: 18px; margin-top: 0; margin-bottom: 5px; color: #111; text-align: center; }
+        p.desc { font-size: 13px; color: #666; margin-bottom: 20px; text-align: center; }
+        
+        /* 區塊標題 */
+        .section-title {
+            font-size: 15px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #444;
+        }
+
+        /* 日期水平滑動區塊 */
+        .date-scroll-container {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            /* 隱藏卷軸但保持可滑動 */
+            scrollbar-width: none; 
+        }
+        .date-scroll-container::-webkit-scrollbar { display: none; }
+        
+        /* 單一日期的按鈕樣式 */
+        .date-chip {
+            padding: 10px 15px;
             border: 1px solid #ced4da;
-            padding: 16px;
             border-radius: 8px;
-            font-size: 16px;
-            color: #495057;
+            flex-shrink: 0;
+            text-align: center;
+            font-size: 14px;
             cursor: pointer;
-            margin-bottom: 25px;
-            transition: background-color 0.2s;
+            background-color: #fff;
+            transition: all 0.2s;
         }
-        .trigger-box:active { background-color: #e2e6ea; }
+        
+        /* 時間網格區塊 */
+        .time-grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        /* 單一時間的按鈕樣式 */
+        .time-chip {
+            padding: 12px 0;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #fff;
+            transition: all 0.2s;
+        }
+
+        /* 按鈕被選取時的狀態 */
+        .chip-selected {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border-color: #4caf50;
+            font-weight: bold;
+        }
+        
+        /* 按鈕被禁用的狀態 (未選日期前，時間不可選) */
+        .chip-disabled {
+            background-color: #f1f3f5;
+            color: #adb5bd;
+            border-color: #e9ecef;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* 確認送出按鈕 */
         .submit-btn {
             width: 100%;
             padding: 14px;
@@ -72,24 +112,39 @@
             cursor: pointer;
         }
         .submit-btn:disabled { background-color: #c6c6c6; cursor: not-allowed; }
-        .message { font-size: 14px; margin-top: 15px; display: none; }
-        .error { color: #dc3545; }
-        .loading-text { font-size: 14px; color: #00B900; margin-bottom: 20px; font-weight: bold; }
+        
+        /* 系統狀態文字 */
+        .loading-text { font-size: 14px; color: #00B900; margin-bottom: 20px; font-weight: bold; text-align: center; }
+        .error-message { font-size: 14px; margin-top: 15px; color: #dc3545; display: none; text-align: center;}
     </style>
+    
+    <script>
+        var vConsole = new window.VConsole();
+        console.log("[System] vConsole 初始化完成，全新無依賴架構載入中");
+    </script>
 </head>
 <body>
 
 <div class="container">
     <h2>預約起租時間</h2>
-    <p class="desc">請點擊下方欄位，開啟滾輪選擇預計取車的時間。</p>
+    <p class="desc">請依序選擇預計取車的日期與時間。</p>
     
     <div id="loadingStatus" class="loading-text">系統連線中，請稍候...</div>
 
-    <div id="timeTrigger" class="trigger-box" style="display: none;">
-        請點此選擇日期與時間
+    <!-- UI 選擇區域 (預設隱藏，待資料載入後顯示) -->
+    <div id="selectionArea" style="display: none;">
+        <div class="section-title">1. 選擇日期</div>
+        <div id="dateContainer" class="date-scroll-container">
+            <!-- 日期按鈕會由 JS 動態產生在這裡 -->
+        </div>
+
+        <div class="section-title">2. 選擇時間</div>
+        <div id="timeContainer" class="time-grid-container">
+            <!-- 時間按鈕會由 JS 動態產生在這裡 -->
+        </div>
     </div>
 
-    <p class="message error" id="errorMessage"></p>
+    <p class="error-message" id="errorMessage"></p>
     <button id="submitBtn" class="submit-btn" disabled>確認並送出</button>
 </div>
 
@@ -98,37 +153,40 @@
     const API_URL = 'https://yamicar-nodate.fmc24316.workers.dev/';
     const BOOKING_DAYS = 30; 
 
-    const timeTrigger = document.getElementById('timeTrigger');
+    // DOM 元素綁定
+    const loadingStatus = document.getElementById('loadingStatus');
+    const selectionArea = document.getElementById('selectionArea');
+    const dateContainer = document.getElementById('dateContainer');
+    const timeContainer = document.getElementById('timeContainer');
     const submitBtn = document.getElementById('submitBtn');
     const errorMessage = document.getElementById('errorMessage');
-    const loadingStatus = document.getElementById('loadingStatus');
 
+    // 狀態變數
     let noWorkDates = []; 
-    let finalSelectedDateTime = ""; 
+    let selectedDate = "";
+    let selectedTime = "";
 
+    // 網頁載入主程式
     window.onload = async function() {
-        console.log("[System] 網頁 DOM 載入完成，開始執行初始化流程");
+        console.log("[System] 網頁 DOM 載入完成，開始執行主程式");
         
         try {
-            // 步驟一：呼叫 API 取得不可營業日
             await fetchNoWorkDates();
+            buildDateUI();
+            buildTimeUI();
             
-            // 步驟二：建構滾輪資料
-            const wheelData = generateWheelData();
-            
-            // 步驟三：檢查套件並初始化滾輪 (帶有延遲重試機制)
-            checkAndInitMobileSelect(wheelData, 0);
-            
-            // 步驟四：初始化 LIFF 系統
-            initializeLiff();
-
-        } catch (error) {
-            console.error("[Exception] 系統初始化發生錯誤:", error);
+            // 顯示介面
             loadingStatus.style.display = 'none';
-            showMessage("系統執行發生錯誤，請重新整理網頁。", "error");
+            selectionArea.style.display = 'block';
+            
+            initializeLiff();
+        } catch (error) {
+            console.error("[Exception] 系統執行發生錯誤:", error);
+            loadingStatus.textContent = "系統發生錯誤，請重新整理網頁。";
         }
     };
 
+    // 呼叫 API 取得不可營業日
     async function fetchNoWorkDates() {
         console.log(`[API] 準備呼叫 API: ${API_URL}`);
         try {
@@ -138,12 +196,10 @@
             });
             console.log(`[API] 回應狀態碼: ${response.status}`);
             
-            if (!response.ok) {
-                throw new Error(`API 請求狀態碼異常: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`API 請求狀態碼異常: ${response.status}`);
             
             const data = await response.json();
-            noWorkDates = Array.isArray(data) ? data : (data.data || []);
+            noWorkDates = Array.isArray(data) ? data : [];
             console.log("[API] 解析後的不可營業日清單:", JSON.stringify(noWorkDates));
         } catch (error) {
             console.error("[Error] API 發生錯誤，將預設全日期皆可營業:", error.message);
@@ -151,9 +207,9 @@
         }
     }
 
-    function generateWheelData() {
-        console.log("[Data] 開始建構滾輪資料結構");
-        let dateData = [];
+    // 動態產生日期按鈕
+    function buildDateUI() {
+        console.log("[UI] 開始建構日期按鈕");
         let addedDays = 0;
         let currentDate = new Date();
 
@@ -162,90 +218,107 @@
             let month = String(currentDate.getMonth() + 1).padStart(2, '0');
             let day = String(currentDate.getDate()).padStart(2, '0');
             let dateString = `${year}-${month}-${day}`;
+            
+            // 簡化顯示用的文字 (例如: 10-28)
+            let displayString = `${month}-${day}`;
 
             if (!noWorkDates.includes(dateString)) {
-                let hoursArray = [];
-                for (let i = 9; i <= 20; i++) {
-                    let timeString = String(i).padStart(2, '0') + ':00';
-                    hoursArray.push({ id: timeString, value: timeString });
-                }
+                let btn = document.createElement('div');
+                btn.className = 'date-chip';
+                btn.textContent = displayString;
+                btn.dataset.date = dateString; // 將完整日期存在 dataset 中
                 
-                dateData.push({
-                    id: dateString,
-                    value: dateString,
-                    childs: hoursArray
-                });
+                // 綁定點擊事件
+                btn.onclick = function() {
+                    handleDateSelect(this);
+                };
+                
+                dateContainer.appendChild(btn);
                 addedDays++;
             }
             currentDate.setDate(currentDate.getDate() + 1);
         }
-        
-        console.log("[Data] 滾輪資料建構完成，共產生可選天數:", addedDays);
-        return dateData;
+        console.log("[UI] 日期按鈕建構完成");
     }
 
-    function checkAndInitMobileSelect(wheelData, retryCount) {
-        if (typeof MobileSelect !== 'undefined') {
-            console.log("[UI] 確認 MobileSelect 套件已準備完成");
-            initMobileSelect(wheelData);
-        } else {
-            if (retryCount < 10) {
-                console.log(`[System] 套件解析中，等待 200 毫秒後重試 (第 ${retryCount + 1} 次)`);
-                setTimeout(() => {
-                    checkAndInitMobileSelect(wheelData, retryCount + 1);
-                }, 200);
-            } else {
-                console.error("[Error] MobileSelect 最終載入失敗");
-                loadingStatus.style.display = 'none';
-                showMessage("介面套件載入失敗，請檢查網路連線或重新開啟。", "error");
-            }
+    // 動態產生時間按鈕
+    function buildTimeUI() {
+        console.log("[UI] 開始建構時間按鈕");
+        for (let i = 9; i <= 20; i++) {
+            let timeString = String(i).padStart(2, '0') + ':00';
+            
+            let btn = document.createElement('div');
+            // 預設加上 chip-disabled，因為還沒選日期
+            btn.className = 'time-chip chip-disabled';
+            btn.textContent = timeString;
+            btn.dataset.time = timeString;
+            
+            // 綁定點擊事件
+            btn.onclick = function() {
+                handleTimeSelect(this);
+            };
+            
+            timeContainer.appendChild(btn);
+        }
+        console.log("[UI] 時間按鈕建構完成");
+    }
+
+    // 處理日期選擇邏輯
+    function handleDateSelect(clickedElement) {
+        console.log(`[Action] 使用者選擇了日期: ${clickedElement.dataset.date}`);
+        selectedDate = clickedElement.dataset.date;
+        
+        // 重置所有日期按鈕的樣式，並亮起被點擊的按鈕
+        const allDateChips = document.querySelectorAll('.date-chip');
+        allDateChips.forEach(chip => chip.classList.remove('chip-selected'));
+        clickedElement.classList.add('chip-selected');
+        
+        // 解除時間按鈕的禁用狀態
+        const allTimeChips = document.querySelectorAll('.time-chip');
+        allTimeChips.forEach(chip => chip.classList.remove('chip-disabled'));
+        
+        // 檢查是否可以啟用送出按鈕
+        checkSubmitButton();
+    }
+
+    // 處理時間選擇邏輯
+    function handleTimeSelect(clickedElement) {
+        console.log(`[Action] 使用者選擇了時間: ${clickedElement.dataset.time}`);
+        selectedTime = clickedElement.dataset.time;
+        
+        // 重置所有時間按鈕的樣式，並亮起被點擊的按鈕
+        const allTimeChips = document.querySelectorAll('.time-chip');
+        allTimeChips.forEach(chip => chip.classList.remove('chip-selected'));
+        clickedElement.classList.add('chip-selected');
+        
+        // 檢查是否可以啟用送出按鈕
+        checkSubmitButton();
+    }
+
+    // 檢查資料是否齊全，以啟用送出按鈕
+    function checkSubmitButton() {
+        if (selectedDate !== "" && selectedTime !== "") {
+            submitBtn.disabled = false;
+            console.log(`[State] 日期與時間皆已選擇，啟用送出按鈕`);
         }
     }
 
-    function initMobileSelect(wheelData) {
-        console.log("[UI] 準備綁定 MobileSelect 滾輪");
-        loadingStatus.style.display = 'none';
-        timeTrigger.style.display = 'block';
-
-        new MobileSelect({
-            trigger: '#timeTrigger',
-            title: '選擇起租時間',
-            wheels: [ { data: wheelData } ],
-            callback: function(indexArr, data) {
-                console.log("[Action] 使用者滾輪選擇完畢:", JSON.stringify(data));
-                finalSelectedDateTime = `${data[0].id} ${data[1].id}`;
-                timeTrigger.innerText = finalSelectedDateTime;
-                timeTrigger.style.backgroundColor = "#e8f5e9";
-                timeTrigger.style.borderColor = "#c8e6c9";
-                timeTrigger.style.color = "#2e7d32";
-                
-                submitBtn.disabled = false;
-                errorMessage.style.display = 'none';
-                console.log(`[State] 已記錄最終選擇時間: ${finalSelectedDateTime}`);
-            }
-        });
-        console.log("[UI] MobileSelect 滾輪套件綁定完成");
-    }
-
+    // 初始化 LIFF
     function initializeLiff() {
         console.log("[LIFF] 開始初始化 LIFF...");
         liff.init({ liffId: MY_LIFF_ID }).then(() => {
             console.log("[LIFF] 初始化成功");
         }).catch((err) => {
             console.error("[Error] LIFF 初始化失敗:", err);
-            showMessage("系統連線失敗，無法傳送訊息。", "error");
+            errorMessage.textContent = "系統連線失敗，無法傳送訊息。";
+            errorMessage.style.display = 'block';
         });
     }
 
+    // 送出按鈕事件
     submitBtn.addEventListener('click', function() {
-        console.log("[Action] 點擊確認送出按鈕");
-        
-        if (!finalSelectedDateTime) {
-            showMessage("請先選擇預約時間。", "error");
-            return;
-        }
-
-        const messageText = `[預約起租] ${finalSelectedDateTime}`;
+        const finalDateTime = `${selectedDate} ${selectedTime}`;
+        const messageText = `[預約起租] ${finalDateTime}`;
         console.log(`[LIFF] 準備發送訊息: ${messageText}`);
 
         if (liff.isInClient()) {
@@ -254,20 +327,14 @@
                 liff.closeWindow();
             }).catch((err) => {
                 console.error("[Error] 發送訊息失敗:", err);
-                showMessage("發送訊息失敗，請檢查網路狀態。", "error");
+                errorMessage.textContent = "發送訊息失敗，請檢查網路狀態。";
+                errorMessage.style.display = 'block';
             });
         } else {
             console.log(`[Test] 測試環境模擬發送: ${messageText}`);
             alert(`測試環境發送字串:\n${messageText}`);
         }
     });
-
-    function showMessage(msg, type) {
-        errorMessage.textContent = msg;
-        errorMessage.className = `message ${type}`;
-        errorMessage.style.display = 'block';
-        console.log(`[UI] 顯示訊息: [${type}] ${msg}`);
-    }
 </script>
 
 </body>
