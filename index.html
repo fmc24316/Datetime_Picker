@@ -120,8 +120,8 @@
 <body>
 
 <div class="container">
-    <h2>預約起租時間</h2>
-    <p class="desc">請依序選擇預計取車的日期與時間。</p>
+    <h2>請選擇時間</h2>
+    <p class="desc">請依序選擇預計取/還車的日期與時間。</p>
     
     <div id="loadingStatus" class="loading-text">系統連線中，請稍候...</div>
 
@@ -313,7 +313,7 @@
     // 送出按鈕事件
     submitBtn.addEventListener('click', function() {
         const finalDateTime = `${selectedDate} ${selectedTime}`;
-        const messageText = `[預約起租] ${finalDateTime}`;
+        const messageText = `${finalDateTime}`;
         console.log(`[LIFF] 準備發送訊息: ${messageText}`);
 
         if (liff.isInClient()) {
