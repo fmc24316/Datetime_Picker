@@ -421,7 +421,7 @@
 
     submitBtn.addEventListener('click', function() {
         // 組合最終要送出的字串，提供清晰的格式供後端解析
-        const messageText = `[預約] 起租:${selectedStartDate} ${selectedStartTime}, 還車:${selectedReturnDate} ${selectedReturnTime}`;
+        const messageText = `起租:${selectedStartDate} ${selectedStartTime}, 還車:${selectedReturnDate} ${selectedReturnTime}`;
         console.log(`[LIFF] 準備發送訊息: ${messageText}`);
 
         if (liff.isInClient()) {
