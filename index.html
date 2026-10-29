@@ -53,7 +53,8 @@
   /* 每一區的標題 */
   .block{display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
   .block-title{display:flex;align-items:center;justify-content:space-between;font-size:17px;font-weight:800;color:var(--text);}
-  .block-title .num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;font-size:15px;margin-right:8px;}
+  /* .num 已不使用 */
+  .block-title .num-unused{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;font-size:15px;margin-right:8px;}
   .block-title .hint{font-size:14px;font-weight:500;color:var(--muted);}
 
   /* 橫向捲動列：右側加漸層，提示還可以往右滑 */
@@ -91,6 +92,12 @@
   .dur:active{transform:scale(.97);}
   .dur.sel{background:var(--green-soft);border-color:var(--green);color:var(--green-dark);}
   .dur.custom{font-size:17px;}
+  /* 切到還車時，租期按鈕換成文字提示 */
+  .custom-box{grid-column:1 / -1;min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 8px 8px 16px;border-radius:14px;background:var(--green-soft);}
+  .custom-box span{font-size:17px;font-weight:700;color:var(--green-dark);line-height:1.35;}
+  .back-quick{flex-shrink:0;height:44px;padding:0 14px;border-radius:12px;background:#fff;border:2px solid var(--green);
+    color:var(--green-dark);font-size:16px;font-weight:700;}
 
   /* 底部固定列 */
   .bar{flex-shrink:0;display:flex;align-items:center;gap:12px;padding:12px 16px calc(12px + var(--safe-b));border-top:1px solid var(--line);background:#fff;transition:background .2s;box-shadow:0 -4px 14px rgba(17,24,39,.05);}
@@ -138,17 +145,17 @@
     </div>
 
     <div class="block">
-      <div class="block-title"><span><span class="num">1</span><span id="lblDate">選擇取車日期</span></span><span class="hint">左右滑動 ›</span></div>
+      <div class="block-title"><span id="lblDate">選擇取車日期</span><span class="hint">左右滑動 ›</span></div>
       <div class="strip-wrap"><div class="strip" id="dateStrip"></div></div>
     </div>
 
     <div class="block">
-      <div class="block-title"><span><span class="num">2</span><span id="lblTime">選擇取車時間</span></span><span class="hint">左右滑動 ›</span></div>
+      <div class="block-title"><span id="lblTime">選擇取車時間</span><span class="hint">左右滑動 ›</span></div>
       <div class="strip-wrap"><div class="strip" id="timeStrip"></div></div>
     </div>
 
     <div class="block">
-      <div class="block-title"><span><span class="num">3</span>選擇租多久</span><span class="hint">至少 24 小時</span></div>
+      <div class="block-title"><span id="lblDur">租多久</span><span class="hint" id="durHint">至少 24 小時</span></div>
       <div class="dur-grid" id="durGrid"></div>
     </div>
   </div>
@@ -324,8 +331,17 @@ function renderTimes(){
     return `<button class="tchip${t === sel ? ' sel' : ''}" data-t="${t}"${dis ? ' disabled' : ''}>${t}</button>`;
   }).join('');
 }
-// 租期按鈕（3 欄）：最後一格「自訂還車」會切到還車分頁
+// 租期區：取車時顯示租期按鈕；切到還車時改成文字提示＋「改用固定租期」
 function renderDurs(){
+  if (mode === 'end'){
+    $('lblDur').textContent = '還車時間';
+    $('durHint').textContent = '';
+    $('durGrid').innerHTML = `<div class="custom-box"><span>✎ 正在自訂還車時間</span>
+      <button class="back-quick" data-back="1">改用固定租期</button></div>`;
+    return;
+  }
+  $('lblDur').textContent = '租多久';
+  $('durHint').textContent = '至少 24 小時';
   $('durGrid').innerHTML = DURS.map(d =>
     `<button class="dur${S.dur === d.k ? ' sel' : ''}" data-d="${d.k}">${d.label}</button>`).join('') +
     `<button class="dur custom${!S.dur ? ' sel' : ''}" data-custom="1">自訂還車</button>`;
@@ -437,6 +453,13 @@ function bindEvents(){
       console.log(`[Action] 選擇租期: ${S.dur} → 還車 ${S.rd} ${S.rt}`);
       render({ smooth:true });
       toast(`還車時間：${disp(S.rd)} ${S.rt}`);
+      return;
+    }
+    if (e.target.closest('[data-back]')){
+      S.dur = S.dur || DEFAULT_DUR; computeEnd(); mode = 'start';
+      console.log(`[Action] 改用固定租期: ${S.dur}`);
+      render();
+      toast('請選擇租多久');
       return;
     }
     if (e.target.closest('[data-custom]')){
