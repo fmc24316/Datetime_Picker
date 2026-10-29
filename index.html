@@ -181,8 +181,8 @@ const MAX_RENT_DAYS = 60;      // 最長租期（天）
 const MIN_RENT_MINUTES = 1440; // 最短租期：24 小時
 const OPEN_MIN = 9 * 60;       // 營業開始 09:00
 const CLOSE_MIN = 20 * 60;     // 營業結束 20:00（含 20:00 這個時段）
-const SLOT_MINUTES = 30;       // 時段間隔
-const LEAD_MINUTES = 0;        // 當天預約需提前幾分鐘；0 = 下一個時段，例如 15:55 → 16:00
+const SLOT_MINUTES = 60;       // 時段間隔：整點租車（60 分鐘一格）
+const LEAD_MINUTES = 0;        // 當天預約需提前幾分鐘；0 = 下一個整點，例如 15:55 → 16:00、16:05 → 17:00
 const DEFAULT_DUR = '1d';      // 預設租期
 const DURS = [
   { k:'1d', label:'1 天', min:1440 },
@@ -228,7 +228,7 @@ const inHours = t => toMin(t) >= OPEN_MIN && toMin(t) <= CLOSE_MIN;
 const rentMinutes = (rd, rt) => (toDT(rd, rt) - toDT(S.sd, S.st)) / 60000;
 
 // 取車時段是否不能選：時段開始時間必須「晚於或等於現在＋提前分鐘數」
-// 例：現在 15:55 → 15:30 不能選、16:00 可以選
+// 例：現在 15:55 → 15:00 不能選、16:00 可以選
 function startSlotDis(k, t){
   if (!inHours(t)) return true;
   return toDT(k, t).getTime() < Date.now() + LEAD_MINUTES * 60000;
